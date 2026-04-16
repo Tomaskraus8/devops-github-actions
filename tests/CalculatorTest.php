@@ -12,6 +12,35 @@
 			$this->calculator = new Calculator();
 		}
 
+		/**
+		 * ADD
+		 */
+		public function testAdd(): void {
+			$result = $this->calculator->add(2, 3);
+			$this->assertEquals(5, $result);
+		}
+
+		public function testAddNegativeNumbers(): void {
+			$result = $this->calculator->add(-2, 3);
+			$this->assertEquals(1, $result);
+		}
+
+		/**
+		 * SUBTRACT
+		 */
+		public function testSubtract(): void {
+			$result = $this->calculator->subtract(10, 3);
+			$this->assertEquals(7, $result);
+		}
+
+		public function testSubtractNegativeResult(): void {
+			$result = $this->calculator->subtract(3, 10);
+			$this->assertEquals(-7, $result);
+		}
+
+		/**
+		 * MULTIPLY
+		 */
 		public function testMultiply(): void {
 			$result = $this->calculator->multiply(3, 4);
 			$this->assertEquals(12, $result);
@@ -27,16 +56,9 @@
 			$this->assertEquals(0, $result);
 		}
 
-		public function testAdd(): void {
-			$result = $this->calculator->add(2, 3);
-			$this->assertEquals(5, $result);
-		}
-
-		public function testAddNegativeNumbers(): void {
-			$result = $this->calculator->add(-2, 3);
-			$this->assertEquals(1, $result);
-		}
-
+		/**
+		 * DIVIDE
+		 */
 		public function testDivide(): void {
 			$result = $this->calculator->divide(10, 2);
 			$this->assertEquals(5, $result);
