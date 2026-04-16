@@ -1,6 +1,7 @@
 {
 	"name": "tk/calculator",
 	"description": "Simple calculator for DevOps homework",
+	"license": "proprietary",
 	"require-dev": {
 		"phpunit/phpunit": "^10.0"
 	},
