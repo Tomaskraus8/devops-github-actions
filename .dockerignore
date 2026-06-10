@@ -1,0 +1,10 @@
+.git
+.github
+.idea
+.junie
+*.md
+vendor/
+terraform/
+.phpunit.result.cache
+.dockerignore
+Dockerfile
