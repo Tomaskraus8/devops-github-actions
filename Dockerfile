@@ -9,7 +9,7 @@ COPY bin/ bin/
 
 RUN curl -sS https://getcomposer.org/installer | php \
     && php composer.phar install --prefer-dist --no-progress \
-    && php vendor/bin/phpunit \
+    && php vendor/bin/phpunit --testdox \
     && php composer.phar install --no-dev --prefer-dist --no-progress \
     && rm -rf composer.phar tests/ phpunit.xml
 
