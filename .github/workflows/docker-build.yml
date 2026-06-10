@@ -73,7 +73,7 @@ jobs:
                   zip -r $IMAGE_NAME-${{ github.sha }}.zip src tests bin composer.json composer.lock phpunit.xml Dockerfile .dockerignore
 
             - name: Upload build artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: php-calculator-build
                   path: php-calculator-*.zip
