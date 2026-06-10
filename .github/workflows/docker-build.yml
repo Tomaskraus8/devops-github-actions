@@ -2,16 +2,20 @@ name: CI Pipeline
 run-name: ${{ github.actor }} is testing PHP application 🧪
 on: [push, pull_request]
 
+env:
+    IMAGE_NAME: php-calculator
+
 jobs:
     test:
         runs-on: ubuntu-latest
 
         steps:
-            - name: Checkout repository code
+            - name: Checkout repository
               uses: actions/checkout@v5
 
             - name: Setup PHP 8.4
               run: |
+                  echo "🐘 Instalace PHP 8.4..."
                   sudo apt-get update
                   sudo apt-get install -y software-properties-common
                   sudo add-apt-repository ppa:ondrej/php -y
@@ -21,21 +25,58 @@ jobs:
 
             - name: Install Composer
               run: |
+                  echo "🎼 Instalace Composeru..."
                   curl -sS https://getcomposer.org/installer | php
                   sudo mv composer.phar /usr/local/bin/composer
                   composer --version
 
             - name: Validate composer.json
-              run: composer validate --strict
+              run: |
+                  echo "🔎 Validace composer.json..."
+                  composer validate --strict
 
             - name: Install dependencies
-              run: composer install --prefer-dist --no-progress --no-interaction
+              run: |
+                  echo "📚 Instalace závislostí..."
+                  composer install --prefer-dist --no-progress --no-interaction
 
             - name: Run PHP syntax check
-              run: find src tests -name "*.php" -print0 | xargs -0 -n1 php -l
+              run: |
+                  echo "🔍 Kontrola syntaxe PHP souborů..."
+                  find src tests bin -name "*.php" -print0 | xargs -0 -n1 php -l
 
             - name: Run PHPUnit tests
-              run: composer test
+              run: |
+                  echo "🧪 Spouštění unit testů..."
+                  composer test
+
+            - name: Build Docker image
+              run: |
+                  echo "🐳 Buildování Docker image..."
+                  docker build -t $IMAGE_NAME:latest .
+                  docker build -t $IMAGE_NAME:${{ github.sha }} .
+
+            - name: Test Docker container
+              run: |
+                  echo "🚀 Testování Docker kontejneru..."
+                  docker run --rm $IMAGE_NAME:latest
+                  docker run --rm $IMAGE_NAME:latest divide 10 4
+
+            - name: List Docker images
+              run: |
+                  echo "📋 Seznam vytvořených images:"
+                  docker images | grep $IMAGE_NAME
+
+            - name: Create zip package
+              run: |
+                  echo "📦 Vytváření zip balíčku s artifakty..."
+                  zip -r $IMAGE_NAME-${{ github.sha }}.zip src tests bin composer.json composer.lock phpunit.xml Dockerfile .dockerignore
+
+            - name: Upload build artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: php-calculator-build
+                  path: php-calculator-*.zip
 
             - name: Report test completion
               run: echo "✅ All tests passed successfully!"
@@ -64,3 +105,76 @@ jobs:
                   context: .
                   push: true
                   tags: ghcr.io/tomaskraus8/calculator:latest
+
+    deploy-to-ecr:
+        needs: test
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/develop'
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v5
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: eu-central-1
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: 1.15.3
+                  terraform_wrapper: false
+
+            - name: Terraform Init
+              working-directory: ./terraform
+              run: |
+                  echo "🏗️ Inicializace Terraformu..."
+                  terraform init
+
+            - name: Terraform Import existing resources
+              working-directory: ./terraform
+              run: |
+                  echo "📥 Import existujících resources do state (pokud už existují)..."
+                  terraform import aws_ecr_repository.php_calculator php-calculator || true
+                  terraform import aws_ecr_lifecycle_policy.php_calculator_policy php-calculator || true
+
+            - name: Terraform Plan
+              working-directory: ./terraform
+              run: |
+                  echo "📝 Plánování změn..."
+                  terraform plan
+
+            - name: Terraform Apply
+              working-directory: ./terraform
+              run: |
+                  echo "⚙️ Aplikování změn..."
+                  terraform apply -auto-approve
+
+            - name: Get ECR repository URL
+              id: ecr-url
+              working-directory: ./terraform
+              run: |
+                  ECR_URL=$(terraform output -raw ecr_repository_url)
+                  echo "ecr_url=$ECR_URL" >> $GITHUB_OUTPUT
+
+            - name: Login to Amazon ECR
+              id: login-ecr
+              uses: aws-actions/amazon-ecr-login@v2
+
+            - name: Build and push Docker image to ECR
+              run: |
+                  ECR_URL=${{ steps.ecr-url.outputs.ecr_url }}
+
+                  echo "🐳 Buildování Docker image..."
+                  docker build -t $ECR_URL:latest .
+                  docker build -t $ECR_URL:${{ github.sha }} .
+
+                  echo "🚀 Pushing images to ECR..."
+                  docker push $ECR_URL:latest
+                  docker push $ECR_URL:${{ github.sha }}
+
+                  echo "✅ Images pushed successfully!"
+                  echo "Repository URL: $ECR_URL"
